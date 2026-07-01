@@ -1,6 +1,8 @@
 # SIGNAL Data Model
 
-This is an initial working model. It should be refined before build.
+This is the Phase 0 data model, refined and ready to build against.
+
+Entities map 1:1 to Supabase Postgres tables (snake_case columns), with `userId` referencing Supabase Auth's `auth.users.id`.
 
 ## User
 
@@ -36,8 +38,10 @@ type DailyMetric = {
   caloriesBurned?: number
   stressScore?: number
 
-  source: 'fitbit' | 'google_health' | 'manual' | 'import'
+  source: 'fitbit' | 'google_health' | 'manual' | 'estimated' | 'import'
+  recordedAt: string
   dataCompleteness: number
+  confidence: 'high' | 'medium' | 'low'
 }
 ```
 
@@ -139,6 +143,8 @@ type Baseline = {
   periodDays: number
   mean: number
   standardDeviation?: number
+  lowBand?: number
+  highBand?: number
   minimumViableDataPoints: number
 
   calculatedAt: string
@@ -168,8 +174,22 @@ type ReadinessScore = {
     injuryIllness?: number
   }
 
+  // Actual weight (%) applied to each component for this score, after any
+  // redistribution (e.g. HRV missing redistributes its weight elsewhere)
+  weightsUsed: {
+    sleep?: number
+    restingHeartRate?: number
+    hrv?: number
+    trainingLoad?: number
+    stress?: number
+    mood?: number
+    soreness?: number
+    injuryIllness?: number
+  }
+
   positiveDrivers: string[]
   negativeDrivers: string[]
+  triggeredRules: string[]
   recommendation: string
 }
 ```
