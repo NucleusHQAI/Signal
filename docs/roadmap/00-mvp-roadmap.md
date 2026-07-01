@@ -28,7 +28,7 @@ Goal: prove the product loop before fighting APIs.
 Tasks:
 
 - Build mobile-first PWA shell
-- Add local storage or mock backend
+- Set up Supabase (Postgres + Auth) for storage and cross-device sync
 - Add daily check-in
 - Add workout logging
 - Add supplement logging

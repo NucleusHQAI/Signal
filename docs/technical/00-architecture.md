@@ -24,7 +24,7 @@ Application layer
   |-- Score calculation
   |-- Insight generation
   |
-Data layer
+Data layer (Supabase: Postgres + Auth)
   |
   |-- User profile
   |-- Daily metrics
@@ -40,19 +40,17 @@ External sources
   |-- Manual imports where APIs are limited
 ```
 
-## Suggested stack
-
-This should be confirmed before build, but a sensible first stack is:
+## Confirmed stack
 
 - React
 - TypeScript
-- Vite or Next.js
-- PWA support
-- Local-first storage for early prototype
-- Supabase or similar later if cloud sync is needed
+- Vite (confirmed over Next.js: SIGNAL is a mobile-first PWA with no server-rendering requirement, and `docs/technical/04-build-commands.md` already scaffolds with `npm create vite@latest`)
+- PWA support (e.g. `vite-plugin-pwa`)
+- Supabase (Postgres + Auth) as the backend from day one — cloud sync is required from the start rather than deferred to Phase 2. Supabase's free tier (Postgres database, auth, storage, realtime) fits a solo prototype, and its relational Postgres model maps directly onto the entities in `docs/technical/01-data-model.md`
 - Recharts for charts
 - Lucide React for icons
-- No Tailwind if preserving the inline-style prototype aesthetic
+
+Styling approach (Tailwind vs. inline styles / CSS Modules) is intentionally left open — there is no existing prototype aesthetic in this repo to preserve, so this should be decided when the PWA shell issue is started, not before.
 
 ## Key architectural decisions
 
