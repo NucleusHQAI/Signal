@@ -26,12 +26,9 @@ Application layer
   |
 Data layer (Supabase: Postgres + Auth)
   |
-  |-- User profile
-  |-- Daily metrics
-  |-- Workouts
-  |-- Supplements
-  |-- Baselines
-  |-- Insights
+  |-- Primary: user profile, daily metrics, check-ins, workouts, supplements
+  |-- Secondary: baselines, training-load metrics
+  |-- Tertiary: readiness scores, insights
   |
 External sources
   |
@@ -88,15 +85,14 @@ Examples:
 
 ### Baseline engine
 
-Calculates user-specific norms.
+Calculates and persists user-specific norms (`Baseline`) and training-load context (`TrainingLoadMetric`) - the secondary, "what's normal for me" tier.
 
 Examples:
 
-- 7-day average
-- 28-day average
-- Rolling standard deviation
-- Personal high / low bands
-- Minimum data requirement
+- 7-day / 28-day rolling average
+- Rolling standard deviation, personal high / low bands
+- Minimum data requirement before a baseline is asserted
+- Acute:chronic workload ratio (ACWR), monotony, strain, weekly load change
 
 ### Rules engine
 

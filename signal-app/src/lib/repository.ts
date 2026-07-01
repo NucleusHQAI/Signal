@@ -6,6 +6,7 @@ import type {
   Insight,
   ReadinessScore,
   SupplementLog,
+  TrainingLoadMetric,
   WorkoutExercise,
   WorkoutSession,
 } from '../types'
@@ -21,6 +22,7 @@ const KEYS = {
   workoutExercises: 'workoutExercises',
   supplementLogs: 'supplementLogs',
   baselines: 'baselines',
+  trainingLoadMetrics: 'trainingLoadMetrics',
   readinessScores: 'readinessScores',
   insights: 'insights',
 } as const
@@ -90,6 +92,13 @@ export const repository = {
   },
   upsertBaseline(baseline: Baseline): Baseline {
     return upsert(KEYS.baselines, baseline)
+  },
+
+  listTrainingLoadMetrics(): TrainingLoadMetric[] {
+    return byDateDesc(byUser(listAll<TrainingLoadMetric>(KEYS.trainingLoadMetrics)))
+  },
+  upsertTrainingLoadMetric(metric: TrainingLoadMetric): TrainingLoadMetric {
+    return upsert(KEYS.trainingLoadMetrics, metric)
   },
 
   listReadinessScores(): ReadinessScore[] {

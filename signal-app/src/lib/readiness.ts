@@ -1,13 +1,15 @@
 import type {
+  Baseline,
   Confidence,
   DailyCheckIn,
   DailyMetric,
   ReadinessComponents,
   ReadinessScore,
   ReadinessStatus,
+  TrainingLoadMetric,
   WorkoutSession,
 } from '../types'
-import { computeAcwr, computeBaseline } from './baseline'
+import { computeBaseline, computeTrainingLoadMetric, DEFAULT_MINIMUM_DATA_POINTS, type TrainingLoadStats } from './baseline'
 
 // Check-in fields are captured on a 1-5 scale (see CheckInPage). For mood,
 // energy, motivation and sleepQuality, 5 is best; for stress and soreness,
@@ -96,23 +98,23 @@ function scoreHrv(metric: DailyMetric | undefined, baselineMean: number | undefi
   }
 }
 
-function scoreTrainingLoad(recentLoads: number[]): ComponentResult {
-  const { ratio } = computeAcwr(recentLoads)
-  if (ratio == null) return { score: undefined }
+function scoreTrainingLoad(trainingLoad: TrainingLoadStats): ComponentResult {
+  const { acwr } = trainingLoad
+  if (acwr == null) return { score: undefined }
   let score = 80
   let rule: string | undefined
-  if (ratio > 1.5) {
+  if (acwr > 1.5) {
     score = 25
     rule = 'Acute training load sharply above chronic baseline (ACWR > 1.5)'
-  } else if (ratio > 1.3) {
+  } else if (acwr > 1.3) {
     score = 50
     rule = 'Acute training load elevated versus chronic baseline (ACWR > 1.3)'
-  } else if (ratio < 0.5) {
+  } else if (acwr < 0.5) {
     score = 70
   }
   return {
     score,
-    driver: `Training load ratio (acute:chronic): ${ratio.toFixed(2)}`,
+    driver: `Training load ratio (acute:chronic): ${acwr.toFixed(2)}`,
     rule,
   }
 }
@@ -184,7 +186,30 @@ function recommendationFor(status: ReadinessStatus, checkIn: DailyCheckIn | unde
   return 'Prioritise recovery. Consider walking, mobility, stretching or rest. Do not progress load today.'
 }
 
-export function calculateReadinessScore(input: ReadinessInput): Omit<ReadinessScore, 'id' | 'userId'> {
+export type ReadinessCalculation = {
+  readiness: Omit<ReadinessScore, 'id' | 'userId'>
+  /** Recomputed norms this call produced, for the caller to persist as Baseline rows. */
+  baselines: Array<Omit<Baseline, 'id' | 'userId'>>
+  /** Recomputed load context this call produced, for the caller to persist as a TrainingLoadMetric row. */
+  trainingLoad: Omit<TrainingLoadMetric, 'id' | 'userId'> | null
+}
+
+function toBaselineRow(metricName: string, stats: ReturnType<typeof computeBaseline>): Omit<Baseline, 'id' | 'userId'> | null {
+  if (!stats) return null
+  return {
+    metricName,
+    periodDays: 28,
+    mean: Math.round(stats.mean * 100) / 100,
+    standardDeviation: stats.standardDeviation != null ? Math.round(stats.standardDeviation * 100) / 100 : undefined,
+    lowBand: stats.lowBand != null ? Math.round(stats.lowBand * 100) / 100 : undefined,
+    highBand: stats.highBand != null ? Math.round(stats.highBand * 100) / 100 : undefined,
+    minimumViableDataPoints: DEFAULT_MINIMUM_DATA_POINTS,
+    dataPointsUsed: stats.count,
+    calculatedAt: new Date().toISOString(),
+  }
+}
+
+export function calculateReadinessScore(input: ReadinessInput): ReadinessCalculation {
   const sleepBaseline = computeBaseline(
     input.metricHistory.map((m) => m.sleepDurationMinutes).filter((v): v is number => v != null),
     28,
@@ -196,12 +221,13 @@ export function calculateReadinessScore(input: ReadinessInput): Omit<ReadinessSc
   const recentLoads = input.sessionHistory
     .filter((s) => s.completed)
     .map((s) => s.estimatedLoad ?? 0)
+  const trainingLoadStats = computeTrainingLoadMetric(recentLoads)
 
   const results: Record<keyof ReadinessComponents, ComponentResult> = {
     sleep: scoreSleep(input.metric, sleepBaseline?.mean),
     restingHeartRate: scoreRestingHeartRate(input.metric, rhrBaseline?.mean, rhrBaseline?.standardDeviation),
     hrv: scoreHrv(input.metric, hrvBaseline?.mean, hrvBaseline?.standardDeviation),
-    trainingLoad: scoreTrainingLoad(recentLoads),
+    trainingLoad: scoreTrainingLoad(trainingLoadStats),
     stress: scoreStress(input.checkIn),
     mood: scoreMood(input.checkIn),
     soreness: scoreSoreness(input.checkIn),
@@ -232,7 +258,15 @@ export function calculateReadinessScore(input: ReadinessInput): Omit<ReadinessSc
     weightedScore += (results[key].score! * weight) / 100
   }
 
-  const score = available.length > 0 ? Math.round(clamp(weightedScore)) : 50
+  // Guardrail: sleep, resting heart rate and HRV are the only objective
+  // (wearable-derived) inputs. Without at least one of them, the score is
+  // built entirely from subjective check-in data, which should never read as
+  // a confident green - cap it below the green band regardless of how well
+  // the subjective components scored.
+  const hasObjectiveData = results.sleep.score != null || results.restingHeartRate.score != null || results.hrv.score != null
+
+  let score = available.length > 0 ? Math.round(clamp(weightedScore)) : 50
+  if (!hasObjectiveData) score = Math.min(score, 74)
   const status = statusForScore(score)
 
   const positiveDrivers: string[] = []
@@ -251,17 +285,42 @@ export function calculateReadinessScore(input: ReadinessInput): Omit<ReadinessSc
   if (!input.checkIn || !input.metric?.restingHeartRate) confidence = 'low'
   else if (missingWeight > 0) confidence = 'medium'
   if (!input.checkIn && (input.metric == null || missingWeight >= 40)) confidence = 'low'
+  if (!hasObjectiveData || missingWeight >= 50) confidence = 'low'
+
+  const trainingLoad: Omit<TrainingLoadMetric, 'id' | 'userId'> | null =
+    trainingLoadStats.count > 0
+      ? {
+          date: input.date,
+          acuteLoad: Math.round(trainingLoadStats.acuteLoad),
+          chronicLoad: Math.round(trainingLoadStats.chronicLoad),
+          acwr: trainingLoadStats.acwr != null ? Math.round(trainingLoadStats.acwr * 100) / 100 : undefined,
+          monotony: trainingLoadStats.monotony != null ? Math.round(trainingLoadStats.monotony * 100) / 100 : undefined,
+          strain: trainingLoadStats.strain != null ? Math.round(trainingLoadStats.strain) : undefined,
+          weeklyLoadChange:
+            trainingLoadStats.weeklyLoadChange != null ? Math.round(trainingLoadStats.weeklyLoadChange * 1000) / 1000 : undefined,
+          dataPointsUsed: trainingLoadStats.count,
+          calculatedAt: new Date().toISOString(),
+        }
+      : null
 
   return {
-    date: input.date,
-    score,
-    status,
-    confidence,
-    components,
-    weightsUsed,
-    positiveDrivers,
-    negativeDrivers,
-    triggeredRules,
-    recommendation: recommendationFor(status, input.checkIn),
+    readiness: {
+      date: input.date,
+      score,
+      status,
+      confidence,
+      components,
+      weightsUsed,
+      positiveDrivers,
+      negativeDrivers,
+      triggeredRules,
+      recommendation: recommendationFor(status, input.checkIn),
+    },
+    baselines: [
+      toBaselineRow('sleepDurationMinutes', sleepBaseline),
+      toBaselineRow('restingHeartRate', rhrBaseline),
+      toBaselineRow('hrvRmssd', hrvBaseline),
+    ].filter((b): b is Omit<Baseline, 'id' | 'userId'> => b != null),
+    trainingLoad,
   }
 }

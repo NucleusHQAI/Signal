@@ -120,6 +120,26 @@ export type Baseline = {
   lowBand?: number
   highBand?: number
   minimumViableDataPoints: number
+  dataPointsUsed: number
+
+  calculatedAt: string
+}
+
+// Derived training-load context (acute/chronic load, ACWR, monotony, strain).
+// Kept distinct from Baseline: a baseline is a mean/SD norm for a metric,
+// this is a set of load-ratio metrics computed from recent session history.
+export type TrainingLoadMetric = {
+  id: string
+  userId: string
+  date: string
+
+  acuteLoad: number
+  chronicLoad: number
+  acwr?: number
+  monotony?: number
+  strain?: number
+  weeklyLoadChange?: number
+  dataPointsUsed: number
 
   calculatedAt: string
 }

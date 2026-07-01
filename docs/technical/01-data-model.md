@@ -4,6 +4,16 @@ This is the Phase 0 data model, refined and ready to build against.
 
 Entities map 1:1 to Supabase Postgres tables (snake_case columns), with `userId` referencing Supabase Auth's `auth.users.id`.
 
+## Data tiers
+
+Entities fall into three tiers, each consuming the one before it:
+
+- **Primary data** - raw facts captured from wearables, manual logs and workouts, with no computation applied: `DailyMetric`, `DailyCheckIn`, `WorkoutSession`, `WorkoutExercise`, `SupplementLog`.
+- **Secondary data** - computed personal context: baselines, rolling norms, trends and training-load measures derived from a user's own history. Covers more than just `Baseline` - `TrainingLoadMetric` (ACWR, monotony, strain, weekly load change) is secondary too, distinct from a mean/SD baseline.
+- **Tertiary data** - interpreted outputs: `ReadinessScore` (score, status, drivers, triggered rules) and `Insight` (the explainable write-up of a score).
+
+A further **action layer** (adaptive workout adjustments, recovery prescriptions, supplement prompts) is a plausible future tier once "what it means" and "what to do about it" need to be separate systems - see `docs/roadmap/00-mvp-roadmap.md` Phase 3. No entity for it exists yet; `ReadinessScore.recommendation` and `Insight.recommendedAction` remain plain strings until there's a concrete reason to model actions as first-class records.
+
 ## User
 
 ```ts
@@ -132,7 +142,9 @@ type SupplementLog = {
 }
 ```
 
-## Baseline
+## Baseline (secondary)
+
+A personal norm for one metric: a rolling mean/SD over a trailing window. Persisted (not just recomputed on read) so the app can show "your HRV baseline was calculated from your last 21 valid readings."
 
 ```ts
 type Baseline = {
@@ -146,12 +158,35 @@ type Baseline = {
   lowBand?: number
   highBand?: number
   minimumViableDataPoints: number
+  dataPointsUsed: number
 
   calculatedAt: string
 }
 ```
 
-## ReadinessScore
+## TrainingLoadMetric (secondary)
+
+Derived training-load context from recent session history - a load-ratio metric, not a mean/SD baseline, so it's modelled separately from `Baseline`.
+
+```ts
+type TrainingLoadMetric = {
+  id: string
+  userId: string
+  date: string
+
+  acuteLoad: number
+  chronicLoad: number
+  acwr?: number
+  monotony?: number
+  strain?: number
+  weeklyLoadChange?: number
+  dataPointsUsed: number
+
+  calculatedAt: string
+}
+```
+
+## ReadinessScore (tertiary)
 
 ```ts
 type ReadinessScore = {
@@ -194,7 +229,7 @@ type ReadinessScore = {
 }
 ```
 
-## Insight
+## Insight (tertiary)
 
 ```ts
 type Insight = {

@@ -107,10 +107,29 @@ create table if not exists baselines (
   low_band numeric,
   high_band numeric,
   minimum_viable_data_points integer not null default 1,
+  data_points_used integer not null default 0,
 
   calculated_at timestamptz not null default now(),
 
   unique (user_id, metric_name, period_days)
+);
+
+create table if not exists training_load_metrics (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  date date not null,
+
+  acute_load numeric not null,
+  chronic_load numeric not null,
+  acwr numeric,
+  monotony numeric,
+  strain numeric,
+  weekly_load_change numeric,
+  data_points_used integer not null default 0,
+
+  calculated_at timestamptz not null default now(),
+
+  unique (user_id, date)
 );
 
 create table if not exists readiness_scores (
@@ -155,6 +174,7 @@ alter table workout_sessions enable row level security;
 alter table workout_exercises enable row level security;
 alter table supplement_logs enable row level security;
 alter table baselines enable row level security;
+alter table training_load_metrics enable row level security;
 alter table readiness_scores enable row level security;
 alter table insights enable row level security;
 
@@ -179,6 +199,8 @@ create policy "Users manage exercises via owning session" on workout_exercises
 create policy "Users manage their own supplement_logs" on supplement_logs
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "Users manage their own baselines" on baselines
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users manage their own training_load_metrics" on training_load_metrics
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "Users manage their own readiness_scores" on readiness_scores
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
