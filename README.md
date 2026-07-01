@@ -41,9 +41,9 @@ Manual inputs should cover the data that consumer wearables often miss:
 
 ## Product status
 
-SIGNAL is currently in product-definition stage.
+Phase 0 (product foundation) is complete: MVP scope, data model and tech stack are finalised.
 
-The first objective is to finalise the product scope, data model and deterministic intelligence engine before building the interface.
+Phase 1 (prototype without integrations) is in progress: `signal-app/` is a mobile-first PWA implementing the daily check-in, workout logging, supplement logging, demo data, readiness score v0, insight explanation format and weekly review described in `docs/roadmap/00-mvp-roadmap.md`.
 
 ## Repository structure
 
@@ -54,9 +54,13 @@ docs/
   roadmap/       Phased plan and delivery sequence
   adr/           Architecture Decision Records
 
+signal-app/      React + TypeScript + Vite PWA (Phase 1 prototype)
+
 .github/
   ISSUE_TEMPLATE/  GitHub issue templates
 ```
+
+See `signal-app/README.md` for how to run the app.
 
 ## Important product boundary
 
