@@ -2,6 +2,10 @@
 -- Run this against a Supabase project (SQL editor) once real cloud sync is
 -- needed. Row-level security keeps every user scoped to their own rows.
 -- Phase 1 runs on localStorage (src/lib/repository.ts) without this schema.
+--
+-- Schema changes since this file was created (e.g. the Google Health
+-- integration tables) live as separate files in supabase/migrations and are
+-- applied with the Supabase CLI - see docs/technical/05-google-health-setup.md.
 
 create table if not exists daily_metrics (
   id uuid primary key default gen_random_uuid(),
