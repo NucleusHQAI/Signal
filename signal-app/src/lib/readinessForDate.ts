@@ -1,11 +1,19 @@
 import { repository, DEMO_USER_ID } from './repository'
 import { calculateReadinessScore } from './readiness'
-import type { ReadinessScore } from '../types'
+import type { Baseline, ReadinessScore, TrainingLoadMetric } from '../types'
 
-// Deterministic per-day id so recomputing a score overwrites the same
-// record instead of accumulating duplicates in storage.
+// Deterministic ids so recomputing a score/baseline/training-load metric
+// overwrites the same record instead of accumulating duplicates in storage.
 function readinessId(date: string): string {
   return `readiness:${DEMO_USER_ID}:${date}`
+}
+
+function baselineId(metricName: string, periodDays: number): string {
+  return `baseline:${DEMO_USER_ID}:${metricName}:${periodDays}`
+}
+
+function trainingLoadId(date: string): string {
+  return `trainingLoad:${DEMO_USER_ID}:${date}`
 }
 
 export function computeReadinessForDate(date: string): ReadinessScore {
@@ -21,7 +29,19 @@ export function computeReadinessForDate(date: string): ReadinessScore {
 
   const result = calculateReadinessScore({ date, metric, checkIn, metricHistory, sessionHistory })
 
-  const score: ReadinessScore = { id: readinessId(date), userId: DEMO_USER_ID, ...result }
+  // Persist the secondary (personal-context) layer this calculation
+  // produced, so it can be shown as "your baseline, calculated from N
+  // readings" rather than only ever existing as a fresh recompute.
+  result.baselines.forEach((baseline) => {
+    const persisted: Baseline = { id: baselineId(baseline.metricName, baseline.periodDays), userId: DEMO_USER_ID, ...baseline }
+    repository.upsertBaseline(persisted)
+  })
+  if (result.trainingLoad) {
+    const persisted: TrainingLoadMetric = { id: trainingLoadId(date), userId: DEMO_USER_ID, ...result.trainingLoad }
+    repository.upsertTrainingLoadMetric(persisted)
+  }
+
+  const score: ReadinessScore = { id: readinessId(date), userId: DEMO_USER_ID, ...result.readiness }
   repository.upsertReadinessScore(score)
   return score
 }

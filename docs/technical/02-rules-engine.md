@@ -32,6 +32,14 @@ Injury / illness:     5%
 
 If HRV is unavailable, redistribute its weight across sleep, resting heart rate and subjective recovery.
 
+### Redistribution guardrails
+
+Redistributing missing weight keeps the score computable, but must not let a score built from thin data look falsely precise:
+
+- Sleep, resting heart rate and HRV are the only objective (wearable-derived) inputs. If none of the three are available today, the score is being built entirely from subjective check-in data - it is capped below the green band (74 max) and confidence is forced to low, regardless of how positively the subjective components scored.
+- If half or more of the total component weight (50%+) has been redistributed away from missing components, confidence is forced to low.
+- A "high confidence green" day therefore always requires at least one objective signal.
+
 ## Status bands
 
 ```text
@@ -67,6 +75,7 @@ These should become user-specific over time.
 - If acute load has increased sharply versus recent baseline, reduce readiness.
 - If acute load is stable and recovery is good, neutral or positive.
 - If acute load is high and sleep/mood is poor, recommend reducing intensity.
+- Computed as a `TrainingLoadMetric` (see `docs/technical/01-data-model.md`): acute/chronic load and ACWR feed readiness scoring today; monotony, strain and weekly load change are persisted alongside it for future rules and trend views.
 
 ### Mood / stress
 
