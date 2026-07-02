@@ -95,9 +95,13 @@ supabase functions deploy google-health-callback
 supabase functions deploy google-health-sync
 ```
 
-## 8. Known gap: no sign-in flow yet
+## 8. Sign in
 
-The Google Health connect button on the Settings page requires a signed-in Supabase Auth user (`auth.uid()` is how the database and Edge Functions know whose tokens belong to whom). SIGNAL's Phase 1 prototype doesn't have a sign-in screen yet - it runs on a single hardcoded local demo user (`DEMO_USER_ID` in `src/lib/repository.ts`). Until Supabase Auth (e.g. email/password or magic link) is wired into the app, the Settings page will show "sign in required" instead of a working connect button. That's the next piece of work needed to actually exercise this end-to-end.
+The Google Health connect button requires a signed-in Supabase Auth user (`auth.uid()` is how the database and Edge Functions know whose tokens belong to whom). The Settings page has an **Account** card above **Google Health**: enter your email, click **Send magic link**, then open the email Supabase sends and click the link. You'll land back in the app signed in, and the Account card will show your email with a Sign out button.
+
+No dashboard configuration is needed for this - Supabase's default email magic-link auth and email template work out of the box. Supabase's built-in email sender has a low rate limit (a few emails per hour) which is fine for personal use; if you outgrow it later, **Authentication > Providers > Email** in the dashboard is where you'd plug in your own SMTP provider.
+
+Note this only covers sign-in for cloud sync and Google Health - SIGNAL's local check-ins, workouts, supplements and demo data still work without signing in (they stay in this browser's local storage, per `src/lib/repository.ts`'s `DEMO_USER_ID`). Signing in and moving that local data to Supabase-backed storage is a separate piece of work, not part of this integration.
 
 ## 9. Verify the API assumptions before relying on synced data
 

@@ -10,4 +10,10 @@ export const isSupabaseConfigured = Boolean(url && anonKey)
 // the app that can use it as soon as VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 // are set (auth, and later swapping the repository to read/write Postgres
 // tables created from supabase/schema.sql).
-export const supabase = url && anonKey ? createClient(url, anonKey) : null
+//
+// flowType: 'pkce' is explicit (not just relying on the current default)
+// because SIGNAL uses HashRouter: the implicit flow puts the session token
+// in a URL fragment (#access_token=...), which collides with the router's
+// own '#/route' fragment. PKCE instead redirects with a '?code=...' query
+// param, which coexists fine with a '#' route that follows it.
+export const supabase = url && anonKey ? createClient(url, anonKey, { auth: { flowType: 'pkce' } }) : null
